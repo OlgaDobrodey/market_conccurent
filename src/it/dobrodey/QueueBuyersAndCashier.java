@@ -5,43 +5,28 @@ import static it.dobrodey.cashir.CashierUtils.generateIndented;
 import it.dobrodey.buyer.Buyer;
 import it.dobrodey.cashir.Cashier;
 import it.dobrodey.cashir.CashierUtils;
-import java.util.Deque;
-import java.util.LinkedList;
-import java.util.concurrent.BlockingDeque;
-import java.util.concurrent.LinkedBlockingDeque;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class QueueBuyersAndCashier {
 
-    private static BlockingDeque<Buyer> dequeBuyer = new LinkedBlockingDeque<>(30);
-    private static BlockingDeque<Buyer> dequePensionner = new LinkedBlockingDeque<>(30);
-    private static Deque<Cashier> dequeCashier = new LinkedList<>();
-
-    private static Lock lockBuyer = new ReentrantLock();
-    private static Lock lockCashier = new ReentrantLock();
+    private static final ConcurrentLinkedQueue<Buyer> dequeBuyer = new ConcurrentLinkedQueue<>();
+    private static final ConcurrentLinkedQueue<Buyer> dequePensionner = new ConcurrentLinkedQueue<>();
+    private static final ConcurrentLinkedQueue<Cashier> dequeCashier = new ConcurrentLinkedQueue<>();
 
     public static void add(Buyer buyer) {
-        lockBuyer.lock();
         if (buyer.getPensioneer()) {
-            dequePensionner.addLast(buyer);
+            dequePensionner.add(buyer);
         } else {
-            dequeBuyer.addLast(buyer);
+            dequeBuyer.add(buyer);
         }
-        lockBuyer.unlock();
         openAnyCashiers();
     }
 
     public static Buyer extract() {
-        try {
-            lockBuyer.lock();
-            if (dequePensionner.size() > 0) {
-                return dequePensionner.pollFirst();
-            } else {
-                return dequeBuyer.pollFirst();
-            }
-        } finally {
-            lockBuyer.unlock();
+        if (dequePensionner.size() > 0) {
+            return dequePensionner.poll();
+        } else {
+            return dequeBuyer.poll();
         }
     }
 
@@ -52,10 +37,8 @@ public class QueueBuyersAndCashier {
     }
 
     public static void closeCashier(Cashier cashier) {
-        lockCashier.lock();
-        dequeCashier.addLast(cashier);
+        dequeCashier.add(cashier);
         System.out.printf("%s CLOSED\n", cashier);
-        lockCashier.unlock();
         synchronized (cashier.getCashierMonitor()) {
             try {
                 cashier.getCashierMonitor().wait();
@@ -67,10 +50,9 @@ public class QueueBuyersAndCashier {
     }
 
     private static Cashier openCashier() {
-        lockCashier.lock();
-        Cashier cashier = dequeCashier.pollFirst();
+        Cashier cashier = dequeCashier.poll();
         System.out.printf("%s OPEN\n", cashier);
-        lockCashier.unlock();
+
         if (cashier != null) {
             synchronized (cashier.getCashierMonitor()) {
                 cashier.getCashierMonitor().notify();
