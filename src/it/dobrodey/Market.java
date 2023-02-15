@@ -47,8 +47,7 @@ public class Market {
                 " ".repeat(80), --second,
                 Supervisor.buyersEnterToMarket.get() - Supervisor.buyersLeavedMarket.get());
 
-        while (!cashierPool.awaitTermination(1L, TimeUnit.HOURS)) {
-        }
+        boolean awaitTermination = cashierPool.awaitTermination(1L, TimeUnit.HOURS);
 
         System.out.println(
                 "===================================MARKET CLOSE==========================================");
